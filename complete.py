@@ -7,9 +7,9 @@ import numpy as np
 import igraph as ig
 from PIL import Image
 from queue import Queue
+import matplotlib.pyplot as plt
 from scipy.signal import convolve
 from scipy.ndimage import laplace
-import matplotlib.pyplot as plt
 
 BORDER_RANGE = 20
 
@@ -238,14 +238,19 @@ class MaskedImg:
         Bmask = ids2mask(B_ids)
         return Bmask
 
+    # https://github.com/ar90n/poisson-blending-in-5lines
     def blend(self, patch):
-        target_img = self._img / 255.0
+        print('blending')
+
+        result_n = self._img / 255.0
+        patch_n = patch._img / 255.0
+        mask = patch._mask
+        
         for c in range(3):
-            for _ in range(1024):
-                target_img[c, :, :] = target_img[c, :, :] + \
-                    0.25 * patch._mask * \
-                    laplace(target_img[c, :, :] - patch._img[c, :, :] / 255.0)
-        return target_img.clip(0, 1) * 255
+            for i in range(2048):
+                result_n[c] = result_n[c] + 0.25 * mask * \
+                    laplace(result_n[c] - patch_n[c])
+        return result_n.clip(0, 1) * 255
 
 if __name__ == '__main__':
 
