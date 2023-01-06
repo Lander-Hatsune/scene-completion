@@ -100,6 +100,8 @@ class MaskedImg:
         min_dis = np.inf
         chosen_pos = None
 
+        time_start = time.time()
+
         for cx, cy in np.ndindex(masksumZ2.shape):
             assert(candi_img_pad[:, cx:, cy:].shape[1:] >= self.shape)
             Z = self.border(candi_img_pad[:, cx:, cy:])
@@ -109,7 +111,7 @@ class MaskedImg:
             #     X,
             #     Z[::-1, ::-1, ::-1],
             #     mode='valid'
-            # ).squeeze() # 165.03s
+            # ) # 165.03s
             
             # assert (XZ == (X * Z).sum()), \
             #     f'XZ: {XZ}, XZ_brute: {(X * Z).sum()}'
@@ -121,13 +123,14 @@ class MaskedImg:
             dis = (X2 + Z2 - 2 * XZ)
             # assert (dis == ((X - Z) ** 2).sum()), \
             #     f'dis: {dis}, dis_brute: {((X - Z) ** 2).sum()}'
+
+            # dis = ((X - Z) ** 2).sum() # 26.97s
             
             if dis < min_dis:
-                cnt += 1
                 min_dis = dis
                 chosen_pos = (cx, cy)
-                print(cx, cy, min_dis)
 
+        print(f'elapsed: {time.time() - time_start:.3f}s')
         return self.invmask(candi_img_pad[:, chosen_pos[0]:, chosen_pos[1]:]) + \
             self.border(candi_img_pad[:, chosen_pos[0]:, chosen_pos[1]:])
 
