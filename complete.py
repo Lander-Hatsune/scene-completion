@@ -8,6 +8,7 @@ import igraph as ig
 from PIL import Image
 from queue import Queue
 from scipy.signal import convolve
+from scipy.ndimage import laplace
 import matplotlib.pyplot as plt
 
 BORDER_RANGE = 20
@@ -237,6 +238,15 @@ class MaskedImg:
         Bmask = ids2mask(B_ids)
         return Bmask
 
+    def blend(self, patch):
+        target_img = self._img / 255.0
+        for c in range(3):
+            for _ in range(1024):
+                target_img[c, :, :] = target_img[c, :, :] + \
+                    0.25 * patch._mask * \
+                    laplace(target_img[c, :, :] - patch._img[c, :, :] / 255.0)
+        return target_img.clip(0, 1) * 255
+
 if __name__ == '__main__':
 
     # images use C, H, W axes, masks use H, W axes
@@ -265,6 +275,7 @@ if __name__ == '__main__':
         Image.fromarray((patch.mask() + patch.invmask(src_img))
                         .transpose((1, 2, 0)).astype(np.uint8)).show()
 
-        
+        result = src.blend(patch)
+        Image.fromarray(result.transpose((1, 2, 0)).astype(np.uint8)).show()
         
     
