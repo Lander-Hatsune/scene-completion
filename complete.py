@@ -3,25 +3,16 @@ import os
 import cv2
 import sys
 import numpy as np
-# import logging as log
 from PIL import Image
 from queue import Queue
 from scipy.signal import convolve
 import matplotlib.pyplot as plt
-# from joblib import Parallel, delayed
 
 BORDER_RANGE = 20
 
 class MaskedImg:
     
     def __init__(self, img, mask):
-
-        # debug
-        # img = np.random.randint(0, 256, size=(3, 5, 5))
-        # mask = np.random.randint(0, 2, size=(5, 5)).astype(np.uint8)
-        # print('img:', img)
-        # print('mask:', mask)
-
         img = img.astype(np.int64)
         mask = mask.astype(np.int64)
         
@@ -45,7 +36,6 @@ class MaskedImg:
             minshape = np.minimum(self._border_mask.shape, img.shape[1:])
             border_mask = self._border_mask[:minshape[0], :minshape[1]]
             img = img[:, :minshape[0], :minshape[1]]
-            # print(f'cut to same shape: {minshape}')
         else:
             border_mask = self._border_mask
         return img * border_mask
@@ -57,7 +47,6 @@ class MaskedImg:
             minshape = np.minimum(self._mask.shape, img.shape[1:])
             mask = self._mask[:minshape[0], :minshape[1]]
             img = img[:, :minshape[0], :minshape[1]]
-            # print(f'cut to same shape: {minshape}')
         else:
             mask = self._mask
         return img * mask
@@ -69,64 +58,47 @@ class MaskedImg:
             minshape = np.minimum(self._mask.shape, img.shape[1:])
             mask = self._mask[:minshape[0], :minshape[1]]
             img = img[:, :minshape[0], :minshape[1]]
-            # print(f'cut to same shape: {minshape}')
         else:
             mask = self._mask
         return img * (1 - mask)
 
     def match(self, candi_img):
-
-        # candi_img = np.random.randint(0, 256, size=(3, 8, 8)) # debug
         assert (0 <= candi_img).all() and \
             (candi_img < 256).all() and \
             candi_img.shape[0] == 3
         candi_img = candi_img.astype(np.int64)
         
         X = self.border()
-        # print('X.shape:', X.shape)
         X2 = (X ** 2).sum((1, 2))
-        # print('X2:', X2)
         
         candi_img_pad = np.pad(candi_img, ((0,),
                                            (self.shape[0] - 1,),
                                            (self.shape[1] - 1,)))
                                            
-        # print('candi_img_pad.shape:', candi_img_pad.shape)
         allZ2 = candi_img_pad ** 2
-        # print('allZ2.shape:', allZ2.shape)
 
         masksumZ2 = convolve(
             allZ2.transpose((1, 2, 0)),
             np.expand_dims(self._border_mask[::-1, ::-1], 2),
             mode='valid'
         ).transpose((2, 0, 1))
-        # print('masksumZ2.shape:', masksumZ2.shape)
 
         min_dis = np.inf
         chosen_pos = None
         for cx, cy in np.ndindex(masksumZ2.shape[1:]):
             assert(candi_img_pad[:, cx:, cy:].shape[1:] >= self.shape)
             Z = self.border(candi_img_pad[:, cx:, cy:])
-            # print('Z.shape:', Z.shape)
 
-            XZ = (X * Z).sum((1, 2))
-            # print('XZ:', XZ)
-
-            # XZ_ = np.concatenate((
-            #     convolve(X[..., 0], Z[::-1, ::-1, 0], mode='valid'),
-            #     convolve(X[..., 1], Z[::-1, ::-1, 1], mode='valid'),
-            #     convolve(X[..., 2], Z[::-1, ::-1, 2], mode='valid'),
-            # )).squeeze()
+            XZ = (X * Z).sum((1, 2)) # convolved
 
             Z2 = masksumZ2[:, cx, cy]
-            assert (Z2 == (Z ** 2).sum((1, 2))).all(), \
-                f'Z2: {Z2}, Z2_brute: {(Z ** 2).sum((1, 2))}'
+            # assert (Z2 == (Z ** 2).sum((1, 2))).all(), \
+            #     f'Z2: {Z2}, Z2_brute: {(Z ** 2).sum((1, 2))}'
 
             dis = (X2 + Z2 - 2 * XZ)
-            dis_brute = ((X - Z) ** 2).sum((1, 2))
-            
-            assert (dis == dis_brute).all(), \
-                f'dis: {dis}, dis_brute: {dis_brute}'
+            # dis_brute = ((X - Z) ** 2).sum((1, 2))
+            # assert (dis == dis_brute).all(), \
+            #     f'dis: {dis}, dis_brute: {dis_brute}'
             
             if dis.sum() < min_dis:
                 min_dis = dis.sum()
