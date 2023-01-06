@@ -2,10 +2,11 @@
 import os
 import cv2
 import sys
+import time
 import numpy as np
+import igraph as ig
 from PIL import Image
 from queue import Queue
-import igraph as ig
 from scipy.signal import convolve
 import matplotlib.pyplot as plt
 
@@ -82,7 +83,7 @@ class MaskedImg:
         candi_img = candi_img.astype(np.int64)
         
         X = self.border()
-        X2 = (X ** 2).sum((1, 2))
+        X2 = (X ** 2).sum()
         
         candi_img_pad = np.pad(candi_img, ((0,),
                                            (self.shape[0] - 1,),
@@ -94,28 +95,38 @@ class MaskedImg:
             allZ2.transpose((1, 2, 0)),
             np.expand_dims(self._border_mask[::-1, ::-1], 2),
             mode='valid'
-        ).transpose((2, 0, 1))
+        ).transpose((2, 0, 1)).sum(0)
 
         min_dis = np.inf
         chosen_pos = None
-        for cx, cy in np.ndindex(masksumZ2.shape[1:]):
+
+        for cx, cy in np.ndindex(masksumZ2.shape):
             assert(candi_img_pad[:, cx:, cy:].shape[1:] >= self.shape)
             Z = self.border(candi_img_pad[:, cx:, cy:])
 
-            XZ = (X * Z).sum((1, 2)) # convolved
+            XZ = (X * Z).sum() # 26.31s
+            # XZ = convolve(
+            #     X,
+            #     Z[::-1, ::-1, ::-1],
+            #     mode='valid'
+            # ).squeeze() # 165.03s
+            
+            # assert (XZ == (X * Z).sum()), \
+            #     f'XZ: {XZ}, XZ_brute: {(X * Z).sum()}'
 
-            Z2 = masksumZ2[:, cx, cy]
-            # assert (Z2 == (Z ** 2).sum((1, 2))).all(), \
-            #     f'Z2: {Z2}, Z2_brute: {(Z ** 2).sum((1, 2))}'
+            Z2 = masksumZ2[cx, cy]
+            # assert (Z2 == (Z ** 2).sum()), \
+            #     f'Z2: {Z2}, Z2_brute: {(Z ** 2).sum()}'
 
             dis = (X2 + Z2 - 2 * XZ)
-            # dis_brute = ((X - Z) ** 2).sum((1, 2))
-            # assert (dis == dis_brute).all(), \
-            #     f'dis: {dis}, dis_brute: {dis_brute}'
+            # assert (dis == ((X - Z) ** 2).sum()), \
+            #     f'dis: {dis}, dis_brute: {((X - Z) ** 2).sum()}'
             
-            if dis.sum() < min_dis:
-                min_dis = dis.sum()
+            if dis < min_dis:
+                cnt += 1
+                min_dis = dis
                 chosen_pos = (cx, cy)
+                print(cx, cy, min_dis)
 
         return self.invmask(candi_img_pad[:, chosen_pos[0]:, chosen_pos[1]:]) + \
             self.border(candi_img_pad[:, chosen_pos[0]:, chosen_pos[1]:])
@@ -232,7 +243,8 @@ if __name__ == '__main__':
 
     candi_dir = sys.argv[3]
 
-    Image.fromarray(src.border().transpose((1, 2, 0)).astype(np.uint8)).show('border(X)')
+    Image.fromarray(src.border().transpose((1, 2, 0))
+                    .astype(np.uint8)).show()
     
     for candi_name in os.listdir(candi_dir):
         print(f'Candidate image: {candi_name}')
@@ -240,20 +252,16 @@ if __name__ == '__main__':
         candi_img = np.array(Image.open(candi_path))[..., :3].transpose((2, 0, 1))
 
         patch_img = src.match(candi_img)
-        (Image.fromarray(patch_img.transpose((1, 2, 0))
-                         .astype(np.uint8))
-         .show(f'{candi_name} chosen patch'))
+        Image.fromarray(patch_img.transpose((1, 2, 0))
+                        .astype(np.uint8)).show()
 
         patch_mask = np.logical_or(src.cut_patch(patch_img), (1 - src_mask))
-        (Image.fromarray((patch_mask * 255).astype(np.uint8)).show())
+        Image.fromarray((patch_mask * 255).astype(np.uint8)).show()
         
         patch = MaskedImg(patch_img, patch_mask)
-        (Image.fromarray(
-            (patch.mask() + patch.invmask(src_img)).transpose((1, 2, 0))
-            .astype(np.uint8)).show())
+        Image.fromarray((patch.mask() + patch.invmask(src_img))
+                        .transpose((1, 2, 0)).astype(np.uint8)).show()
 
         
-        
-
         
     
