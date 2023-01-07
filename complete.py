@@ -258,7 +258,7 @@ class MaskedImg:
 
         time_start = time.time()
         def _iter_channel(result_n, patch_n):
-            for i in range(4096):
+            for i in range(8192):
                 result_n = result_n + 0.25 * mask * \
                     laplace(result_n - patch_n)
             return result_n
