@@ -79,6 +79,7 @@ class MaskedImg:
         return: patch ('replace' part + 'border' part)
         '''
         print('--- Matching candi_img to src.border ---')
+        time_start = time.time()
         assert (0 <= candi_img).all() and \
             (candi_img < 256).all() and \
             candi_img.shape[0] == 3
@@ -105,11 +106,6 @@ class MaskedImg:
             mode='valid'
         ).squeeze()
 
-        min_dis = np.inf
-        chosen_pos = None
-
-        time_start = time.time()
-
         dismap = X2 + masksumZ2 - 2 * allXZ
 
         print('minimum dis:', dismap.min())
@@ -125,9 +121,10 @@ class MaskedImg:
         cut border part to (A: keep, B: replace) part
         
         patch: shape (C, H, W), 'replace' part + 'border' part
-        return: patch cut, ready to substitute
+        return: patch_mask, ready to blend
         '''
-        print('cutting patch')
+        print('--- Cutting patch ---')
+        time_start = time.time()
         sname = self.shape[0] * self.shape[1]
         tname = sname + 1
         edges = []
@@ -210,7 +207,7 @@ class MaskedImg:
         print(mincut)
         _, B_ids = mincut.partition
 
-        def ids2mask(ids):
+        def _ids2mask(ids):
             mask = np.zeros(self.shape)
             for vid in ids: # vertex id
                 name = graph.vs.find(vid)['name']
@@ -220,20 +217,21 @@ class MaskedImg:
                 mask[x, y] = 1
             return mask
 
-        Bmask = ids2mask(B_ids)
+        Bmask = _ids2mask(B_ids)
+        print(f'elapsed: {time.time() - time_start:.3f}s')
         return Bmask
 
     # https://github.com/ar90n/poisson-blending-in-5lines
     def blend(self, patch):
         print('--- Blending ---')
-
+        time_start = time.time()
+        
         result_n = (patch.invmask(self._img) + patch.mask()) / 255.0
         patch_n = patch._img / 255.0
         mask = patch._mask
 
-        time_start = time.time()
         def _iter_channel(result_n, patch_n):
-            for i in range(8192):
+            for i in range(4096):
                 result_n = result_n + 0.25 * mask * \
                     laplace(result_n - patch_n)
             return result_n
