@@ -85,7 +85,7 @@ class MaskedImg:
         candi_img = candi_img.astype(np.int64)
         
         X = self.border()
-        # X2 = (X ** 2).sum()
+        X2 = (X ** 2).sum()
         
         candi_img_pad = np.pad(candi_img, ((0,),
                                            (self.shape[0] - 1,),
@@ -112,7 +112,7 @@ class MaskedImg:
 
         def _getdis(cx, cy):
             cx, cy = cx * 10, cy * 10
-            # assert(candi_img_pad[:, cx:, cy:].shape[1:] >= self.shape)
+            assert(candi_img_pad[:, cx:, cy:].shape[1:] >= self.shape)
             Z = self.border(candi_img_pad[:, cx:, cy:])
 
             XZ = allXZ[cx, cy]
@@ -120,13 +120,13 @@ class MaskedImg:
                 f'XZ: {XZ}, XZ_brute: {(X * Z).sum()}'
 
             Z2 = masksumZ2[cx, cy]
-            # assert (Z2 == (Z ** 2).sum()), \
-            #     f'Z2: {Z2}, Z2_brute: {(Z ** 2).sum()}'
+            assert (Z2 == (Z ** 2).sum()), \
+                f'Z2: {Z2}, Z2_brute: {(Z ** 2).sum()}'
 
-            # dis = (X2 + Z2 - 2 * XZ)
-            dis = Z2 - 2 * XZ
-            # assert (dis == ((X - Z) ** 2).sum()), \
-            #     f'dis: {dis}, dis_brute: {((X - Z) ** 2).sum()}'
+            dis = (X2 + Z2 - 2 * XZ)
+            # dis = Z2 - 2 * XZ
+            assert (dis == ((X - Z) ** 2).sum()), \
+                f'dis: {dis}, dis_brute: {((X - Z) ** 2).sum()}'
 
             # dis = ((X - Z) ** 2).sum() # 26.97s
             if (cx % 100 == 0 and cy == 0):
