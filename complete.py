@@ -78,7 +78,7 @@ class MaskedImg:
         candi_img: shape (C, H, W)
         return: patch ('replace' part + 'border' part)
         '''
-        print('matching candi_img to src.border')
+        print('--- Matching candi_img to src.border ---')
         assert (0 <= candi_img).all() and \
             (candi_img < 256).all() and \
             candi_img.shape[0] == 3
@@ -99,6 +99,12 @@ class MaskedImg:
             mode='valid'
         ).transpose((2, 0, 1)).sum(0)
 
+        allXZ = convolve(
+            candi_img_pad,
+            X[::-1, ::-1, ::-1],
+            mode='valid'
+        ).squeeze()
+
         min_dis = np.inf
         chosen_pos = None
 
@@ -109,15 +115,9 @@ class MaskedImg:
             # assert(candi_img_pad[:, cx:, cy:].shape[1:] >= self.shape)
             Z = self.border(candi_img_pad[:, cx:, cy:])
 
-            XZ = (X * Z).sum() # 26.31s
-            # XZ = convolve(
-            #     X,
-            #     Z[::-1, ::-1, ::-1],
-            #     mode='valid'
-            # ) # 165.03s
-            
-            # assert (XZ == (X * Z).sum()), \
-            #     f'XZ: {XZ}, XZ_brute: {(X * Z).sum()}'
+            XZ = allXZ[cx, cy]
+            assert (XZ == (X * Z).sum()), \
+                f'XZ: {XZ}, XZ_brute: {(X * Z).sum()}'
 
             Z2 = masksumZ2[cx, cy]
             # assert (Z2 == (Z ** 2).sum()), \
@@ -135,8 +135,9 @@ class MaskedImg:
 
         dilated_shape = (masksumZ2.shape[0] // 10, masksumZ2.shape[1] // 10)
         dismap = np.array(
-            Parallel(n_jobs=8)(delayed(_getdis)(cx, cy) \
-                                for cx, cy in np.ndindex(dilated_shape)))
+            Parallel(n_jobs=12)(delayed(_getdis)(cx, cy) \
+                                for cx, cy in np.ndindex(dilated_shape))) # 105s / 45s
+        print('minimum dis:', dismap.min())
         chosen_pos = np.unravel_index(np.argmin(dismap), dilated_shape)
         chosen_pos = chosen_pos[0] * 10, chosen_pos[1] * 10
         print(chosen_pos)
@@ -250,7 +251,7 @@ class MaskedImg:
 
     # https://github.com/ar90n/poisson-blending-in-5lines
     def blend(self, patch):
-        print('blending')
+        print('--- Blending ---')
 
         result_n = (patch.invmask(self._img) + patch.mask()) / 255.0
         patch_n = patch._img / 255.0
@@ -281,7 +282,7 @@ if __name__ == '__main__':
     #                 .astype(np.uint8)).show()
     
     for candi_name in os.listdir(candi_dir):
-        print(f'Candidate image: {candi_name}')
+        print(f'\nCandidate image: {candi_name}')
         candi_path = os.path.join(candi_dir, candi_name)
         candi_img = np.array(Image.open(candi_path))[..., :3].transpose((2, 0, 1))
 
@@ -302,4 +303,5 @@ if __name__ == '__main__':
         os.system(f'mkdir -p results/{candi_dir}')
         (Image.fromarray(result.transpose((1, 2, 0)).astype(np.uint8))
          .save(f'results/{candi_path}'))
+        print(f'results/{candi_path} saved')
     
