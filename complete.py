@@ -110,36 +110,10 @@ class MaskedImg:
 
         time_start = time.time()
 
-        def _getdis(cx, cy):
-            cx, cy = cx * 10, cy * 10
-            assert(candi_img_pad[:, cx:, cy:].shape[1:] >= self.shape)
-            Z = self.border(candi_img_pad[:, cx:, cy:])
+        dismap = X2 + masksumZ2 - 2 * allXZ
 
-            XZ = allXZ[cx, cy]
-            assert (XZ == (X * Z).sum()), \
-                f'XZ: {XZ}, XZ_brute: {(X * Z).sum()}'
-
-            Z2 = masksumZ2[cx, cy]
-            assert (Z2 == (Z ** 2).sum()), \
-                f'Z2: {Z2}, Z2_brute: {(Z ** 2).sum()}'
-
-            dis = (X2 + Z2 - 2 * XZ)
-            # dis = Z2 - 2 * XZ
-            assert (dis == ((X - Z) ** 2).sum()), \
-                f'dis: {dis}, dis_brute: {((X - Z) ** 2).sum()}'
-
-            # dis = ((X - Z) ** 2).sum() # 26.97s
-            if (cx % 100 == 0 and cy == 0):
-                print(f'[{cx}/{masksumZ2.shape[0]}]')
-            return dis
-
-        dilated_shape = (masksumZ2.shape[0] // 10, masksumZ2.shape[1] // 10)
-        dismap = np.array(
-            Parallel(n_jobs=12)(delayed(_getdis)(cx, cy) \
-                                for cx, cy in np.ndindex(dilated_shape))) # 105s / 45s
         print('minimum dis:', dismap.min())
-        chosen_pos = np.unravel_index(np.argmin(dismap), dilated_shape)
-        chosen_pos = chosen_pos[0] * 10, chosen_pos[1] * 10
+        chosen_pos = np.unravel_index(np.argmin(dismap), dismap.shape)
         print(chosen_pos)
 
         print(f'elapsed: {time.time() - time_start:.3f}s')
