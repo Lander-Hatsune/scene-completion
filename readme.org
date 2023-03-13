@@ -1,0 +1,13 @@
+* Usage
+
+#+begin_src sh
+  complete.py <src_img> <src_mask> <candidate_dir>
+#+end_src
+
+* Results
+
+[[res.jpg]]
+
+* Refs
+
+- [[http://graphics.cs.cmu.edu/projects/scene-completion/][Scene Completion Using Millions of Photographs]]
